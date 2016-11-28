@@ -8,6 +8,7 @@ import gc
 
 # vec_w es el vector de pesos de cada uno de los elementos
 # vec_w es el vector de valores de cada uno de los elementos
+# valores_aux es el vector de valores "redondeados"
 vec_w = []
 vec_v = []
 valores_aux = []
@@ -93,17 +94,14 @@ def solveMochila2(cantElem, capMochila):
 def mochilaAproximada(cantElem, capMochila, precision):
 	global valores_aux
 	global vec_v
-	b = precision * float(max(vec_v)) / (2.0 * cantElem)
+	if(precision == 1) or (precision == 1.0):
+		valores_aux = vec_v
+		return solveMochila(cantElem, capMochila)
 	valores_aux = list(vec_v)
+	b = precision * float(max(vec_v)) / (2.0 * cantElem)
 	for i in range(0, cantElem):
 		valores_aux[i] = int(math.floor(valores_aux[i] / b))
 	return solveMochila(cantElem, capMochila)
-
-def seleccionar_elementos(C, w):
-	for i in range (C, -1, -1):
-		if (mochilaReal(i, w) != mochilaReal(i-1, w)):
-			seleccionados[i] = 1
-			w -= vec_w[i]
 
 def devolverS(cantElem, maxV):
 	for i in range(cantElem, -1, -1):
@@ -112,13 +110,13 @@ def devolverS(cantElem, maxV):
 			maxV -= valores_aux[i-1]
 
 # De acá en adelante es la zona de tests
-"""
+
 arch = "Mochila/Dificiles/"
-arch += "knapPI_12_500_1000.csv"
+arch += "knapPI_13_100_1000.csv"
 f = open(arch, 'r')
 dist_tiempos = []
 tProm = 0.0
-for instanciaAct in range (0, 1):
+for instanciaAct in range (0, 50):
 	vec_w = []
 	vec_v = []
 	cantElem = 0
@@ -132,18 +130,24 @@ for instanciaAct in range (0, 1):
 
 	(cantElem, Wmochila, optVal) = parsear_instancia(f)
 	for i in range(0, cantElem+1):
-		dic = []
+		dic = {}
 		soluciones.append(dic)
-		for w in range (0, Wmochila+1):
-			soluciones[i].append(0)
-
-	for i in range (0, cantElem+1):
+	for i in range(0, cantElem):
 		seleccionados.append(0)
+		
 	print "Instancia actual: ", instanciaAct + 1
 	
 	t0 = time.time()
-	a = mochilaAproximada(cantElem-1, Wmochila, 0.1)
+	a = mochilaAproximada(cantElem, Wmochila, 1)
 	t1 = time.time()
+	
+	devolverS(cantElem, a)
+	
+	a = 0
+	for i in range (0, cantElem):
+		if seleccionados[i]:
+			a += vec_v[i]
+			
 
 	print "Solucion encontrada: ", a
 	print "Solucion optima real: ", optVal
@@ -185,5 +189,5 @@ for i in range(0, cantElem):
 
 devolverS(len(vec_v), mochilaAproximada(len(vec_v), Wmochila, 0.01))
 print "Elegir items:", seleccionados
-
+"""
 
