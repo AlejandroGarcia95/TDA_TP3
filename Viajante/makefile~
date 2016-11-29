@@ -2,7 +2,7 @@ CARGS= -Wall -pedantic -std=c99 -g
 
 
 PRUEBAS= tsp.c
-EXEC = grafoExec
+EXEC = TSPExec
 GRAFO = grafo.o
 TDAS = lista.o hash.o heap.o cola.o
 

@@ -1,6 +1,6 @@
 CARGS= -Wall -pedantic -std=c99 -g
 
-MENSAJE = Por ahora con prim
+MENSAJE = Viajanteee
 
 PRUEBAS= laberintos.c
 EXEC = grafoExec

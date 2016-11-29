@@ -4,7 +4,7 @@ CARGS= -Wall -pedantic -std=c99 -g
 PRUEBAS= tsp.c
 EXEC = TSPExec
 GRAFO = grafo.o
-TDAS = lista.o hash.o heap.o cola.o
+TDAS = lista.o hash.o heap.o cola.o pila.o
 
 VALGRIND= valgrind --track-origins=yes --leak-check=full
 VALGRIND-V= $(VALGRIND) -v 

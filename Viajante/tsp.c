@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include "pila.h"
 #include "heap.h"
 
 // Prim es O(n a la 2)
@@ -15,8 +16,7 @@
 #define TRUE 1
 #define INFINITO 99500
 
-// Estructura auxiliar para guardar información de los vértices en
-// cada uno de los recorridos
+// Estructura auxiliar para guardar información de los vértices en Prim
 struct vert_data{
 	char* vertice;
 	int distancia;
@@ -28,6 +28,7 @@ void vert_data_destruir(void *e){
 	free(vActual);
 }
 
+// Función de creación de vert_data
 struct vert_data* vert_data_crear(char* vert, int dist){
 	struct vert_data* vd = malloc(sizeof(struct vert_data));
 	if(!vd)
@@ -43,9 +44,118 @@ int comparar(const void *a, const void *b){
 	return real_b->distancia -real_a->distancia;
 }
 
+/* Recibe un grafo y devuelve una lista con el recorrido DFS de ese
+grafo, iniciando en el vértice origen (primer elem. de la lista). 
+Pre: grafo es válido, origen pertenece al grafo.
+Post: se devolvió una lista con los vértices del grafo recorridos en
+DFS, o NULL en caso de error.*/
+lista_t* recorrido_dfs(grafo_t* grafo, char *origen){
+	hash_t* nodos_visitados = hash_crear(NULL);
+	if(!nodos_visitados) return NULL;
+	// Inicializo todos los visitados como FALSE
+	lista_t* vertices = grafo_vertices(grafo);		
+	lista_iter_t *l_it = lista_iter_crear(vertices);
+	if(!l_it) {
+		hash_destruir(nodos_visitados);
+		return NULL;
+		}
+	while(!lista_iter_al_final(l_it)){
+		char* v = (char*) lista_iter_ver_actual(l_it);			
+		hash_guardar(nodos_visitados, v, (void*)FALSE);
+		lista_iter_avanzar(l_it);
+		}	
+	lista_iter_destruir(l_it);
+	lista_destruir(vertices, NULL);
+	// Lista de resultados
+	lista_t* resultados = lista_crear();
+	if(!resultados){
+		hash_destruir(nodos_visitados);
+		return NULL;
+		}
+	// Creo la pila para ir apilando los nodos
+	pila_t* q = pila_crear();
+	if(!q){
+		hash_destruir(nodos_visitados);
+		lista_destruir(resultados, NULL);
+		return NULL;
+		}
+	pila_apilar(q, origen); // Apilo el nodo inicial
+	while(!pila_esta_vacia(q)){
+		char* vActual = (char*)pila_desapilar(q);
+		hash_guardar(nodos_visitados, vActual, (void*)TRUE);
+		// Itero en todos los adyacentes al nodo desapilado
+		hash_t* ady = grafo_devolver_adyacentes(grafo, vActual);
+		hash_iter_t* h_it = hash_iter_crear(ady);
+		if(!h_it){
+			pila_destruir(q);	
+			hash_destruir(nodos_visitados);
+			lista_destruir(resultados, NULL);	
+			return FALSE;
+			}
+		while(!hash_iter_al_final(h_it)){
+			char* adyActual = (char*)hash_iter_ver_actual(h_it);
+			if(!(int)hash_obtener(nodos_visitados, adyActual))
+				pila_apilar(q, adyActual);
+			hash_iter_avanzar(h_it);
+			}
+		hash_iter_destruir(h_it);
+		lista_insertar_ultimo(resultados, vActual);
+		}
+	// Destruyo las estructuras aux. y devuelvo la lista
+	hash_destruir(nodos_visitados);
+	pila_destruir(q);
+	return resultados;
+}
 
+/* Función auxiliar usada por el algoritmo de Prim. Convierte el hash
+de (nodos, padres) en un grafo nuevo. 
+Pre: padres es un hash en formato válido.
+Post: se devolvió un grafo siguiendo la estructura del hash recibido o
+NULL en caso de error.*/
+grafo_t* hash_tree_to_graph(hash_t* padres){
+	grafo_t* elGrafo = grafo_crear();
+	if(!elGrafo) return NULL;
+	// Primero agrego los vértices
+	hash_iter_t* h_it = hash_iter_crear(padres);
+	if(!h_it){
+		grafo_destruir(elGrafo);
+		return FALSE;
+		}
+	while(!hash_iter_al_final(h_it)){
+		char* vActual = (char*) hash_iter_ver_actual(h_it);
+		grafo_crear_vertice(elGrafo, vActual);
+		hash_iter_avanzar(h_it);
+		}
+	hash_iter_destruir(h_it);
+	// Para cada vertice del arbol, lo uno con su padre
+	lista_t* vertices = grafo_vertices(elGrafo);		
+	lista_iter_t *l_it = lista_iter_crear(vertices);
+	if(!l_it) {
+		grafo_destruir(elGrafo);		
+		return NULL;
+		}	
+	while(!lista_iter_al_final(l_it)){
+		char* hijoAct = (char*) lista_iter_ver_actual(l_it);			
+		char* padreAct = (char*) hash_obtener(padres, hijoAct);
+		if(hijoAct && padreAct){
+			grafo_crear_arista(elGrafo, hijoAct, padreAct, FALSE, 1);
+			grafo_crear_arista(elGrafo, padreAct, hijoAct, FALSE, 1);
+			}
+		lista_iter_avanzar(l_it);
+		}
+	lista_iter_destruir(l_it);
+	lista_destruir(vertices, NULL);
+	return elGrafo;
+}
 
-hash_t* ejecutar_prim(grafo_t* grafo, char *raiz){
+/* Ejecuta el algoritmo de Prim en el grafo recibido, usando como
+raíz para el árbol devuelto la recibida. Devuelve un grafo que
+representa el árbol de tendido mínimo. En caso de error, devuelve
+NULL. se ejecuta en O(n^2) donde n = |V(G)|.
+Pre: grafo es válido, raiz pertenece a grafo.
+Post: se devuelve un árbol de tendido mínimo en foma de grafo, o NULL
+en caso de error.*/
+grafo_t* ejecutar_prim(grafo_t* grafo, char *raiz){
 	// Primero creo las 3 estructuras auxiliares necesarias:
 	// distancias, nodos_visitados y padres, todas como diccionarios
 	hash_t* distancias = hash_crear(NULL);
@@ -111,15 +221,15 @@ hash_t* ejecutar_prim(grafo_t* grafo, char *raiz){
 			}
 		// Itero en todos los adyacentes al nodo desencolado
 		hash_t* ady = grafo_devolver_adyacentes(grafo, vActual->vertice);
-			hash_iter_t* h_it = hash_iter_crear(ady);
-			if(!h_it){
-				heap_destruir(q, vert_data_destruir);
-				lista_destruir(vertices, NULL);
-				hash_destruir(distancias);
-				hash_destruir(padres);	
-				hash_destruir(nodos_visitados);	
-				return FALSE;
-				}
+		hash_iter_t* h_it = hash_iter_crear(ady);
+		if(!h_it){
+			heap_destruir(q, vert_data_destruir);
+			lista_destruir(vertices, NULL);
+			hash_destruir(distancias);
+			hash_destruir(padres);	
+			hash_destruir(nodos_visitados);	
+			return FALSE;
+			}
 		while(!hash_iter_al_final(h_it)){ // for w adyacente a vActual
 			char* w = (char*) hash_iter_ver_actual(h_it); 
 			if((!(int)hash_obtener(nodos_visitados,w)) && ((int)hash_obtener(distancias,w) > grafo_devolver_peso_arista(grafo,vActual->vertice,w))){
@@ -148,12 +258,16 @@ hash_t* ejecutar_prim(grafo_t* grafo, char *raiz){
 	
 	heap_destruir(q, vert_data_destruir);	
 	lista_destruir(vertices, NULL);
-	// Destruyo las estructuras de visitados y distancias
+	
+	grafo_t* arbolito = hash_tree_to_graph(padres);
+	// Destruyo las estructuras de visitados, padres y distancias
 	hash_destruir(distancias);
 	hash_destruir(nodos_visitados);
-	return padres;
+	hash_destruir(padres);
+	return arbolito;
 }
 
+// Función auxiliar para crear un grafo de ejemplo. Matar luego
 grafo_t* crear_ejemplo(){
 	grafo_t* grafo_ej = grafo_crear();
 	if(!grafo_ej) return NULL;
@@ -162,61 +276,58 @@ grafo_t* crear_ejemplo(){
 	grafo_crear_vertice(grafo_ej, "c");
 	grafo_crear_vertice(grafo_ej, "d");
 	grafo_crear_vertice(grafo_ej, "e");
-	grafo_crear_vertice(grafo_ej, "f");
-	grafo_crear_vertice(grafo_ej, "g");
-	grafo_crear_vertice(grafo_ej, "h");
-	grafo_crear_vertice(grafo_ej, "i");
 	
-	grafo_crear_arista(grafo_ej, "a", "b", FALSE, 4);
-	grafo_crear_arista(grafo_ej, "b", "c", FALSE, 8);
-	grafo_crear_arista(grafo_ej, "c", "d", FALSE, 7);	
-	grafo_crear_arista(grafo_ej, "d", "e", FALSE, 9);
-	grafo_crear_arista(grafo_ej, "e", "f", FALSE, 10);
-	grafo_crear_arista(grafo_ej, "f", "g", FALSE, 2);
-	grafo_crear_arista(grafo_ej, "g", "h", FALSE, 1);
-	grafo_crear_arista(grafo_ej, "h", "a", FALSE, 8);
-	grafo_crear_arista(grafo_ej, "h", "b", FALSE, 11);
-	grafo_crear_arista(grafo_ej, "h", "i", FALSE, 7);	
-	grafo_crear_arista(grafo_ej, "c", "i", FALSE, 2);
-	grafo_crear_arista(grafo_ej, "i", "g", FALSE, 6);
-	grafo_crear_arista(grafo_ej, "c", "f", FALSE, 4);	
-	grafo_crear_arista(grafo_ej, "f", "d", FALSE, 14);
+	grafo_crear_arista(grafo_ej, "a", "b", FALSE, 100);
+	grafo_crear_arista(grafo_ej, "b", "c", FALSE, 50);
+	grafo_crear_arista(grafo_ej, "c", "d", FALSE, 100);	
+	grafo_crear_arista(grafo_ej, "d", "e", FALSE, 50);
+	grafo_crear_arista(grafo_ej, "e", "a", FALSE, 75);
+	grafo_crear_arista(grafo_ej, "a", "d", FALSE, 100);
+	grafo_crear_arista(grafo_ej, "a", "c", FALSE, 300);
+	grafo_crear_arista(grafo_ej, "d", "b", FALSE, 75);
+	grafo_crear_arista(grafo_ej, "b", "e", FALSE, 125);
+	grafo_crear_arista(grafo_ej, "c", "e", FALSE, 125);	 
 	
-	grafo_crear_arista(grafo_ej, "b", "a", FALSE, 4);
-	grafo_crear_arista(grafo_ej, "c", "b", FALSE, 8);
-	grafo_crear_arista(grafo_ej, "d", "c", FALSE, 7);	
-	grafo_crear_arista(grafo_ej, "e", "d", FALSE, 9);
-	grafo_crear_arista(grafo_ej, "f", "e", FALSE, 10);
-	grafo_crear_arista(grafo_ej, "g", "f", FALSE, 2);
-	grafo_crear_arista(grafo_ej, "h", "g", FALSE, 1);
-	grafo_crear_arista(grafo_ej, "a", "h", FALSE, 8);
-	grafo_crear_arista(grafo_ej, "b", "h", FALSE, 11);
-	grafo_crear_arista(grafo_ej, "i", "h", FALSE, 7);	
-	grafo_crear_arista(grafo_ej, "i", "c", FALSE, 2);
-	grafo_crear_arista(grafo_ej, "g", "i", FALSE, 6);
-	grafo_crear_arista(grafo_ej, "f", "c", FALSE, 4);	
-	grafo_crear_arista(grafo_ej, "d", "f", FALSE, 14);
+	grafo_crear_arista(grafo_ej, "b", "a", FALSE, 100);
+	grafo_crear_arista(grafo_ej, "c", "b", FALSE, 50);
+	grafo_crear_arista(grafo_ej, "d", "c", FALSE, 100);	
+	grafo_crear_arista(grafo_ej, "e", "d", FALSE, 50);
+	grafo_crear_arista(grafo_ej, "a", "e", FALSE, 75);
+	grafo_crear_arista(grafo_ej, "d", "a", FALSE, 100);
+	grafo_crear_arista(grafo_ej, "c", "a", FALSE, 300);
+	grafo_crear_arista(grafo_ej, "b", "d", FALSE, 75);
+	grafo_crear_arista(grafo_ej, "e", "b", FALSE, 125);
+	grafo_crear_arista(grafo_ej, "e", "c", FALSE, 125);	 
 	
 	return grafo_ej;
 	
 }
 
 int main(){
-	//printf("Hola mundo!\r\n");
 	grafo_t* ng = crear_ejemplo();
-	hash_t* resultados = ejecutar_prim(ng, "a");
+	char* vertInicial = "a";
+	grafo_t* arbolito = ejecutar_prim(ng, vertInicial);
+	lista_t* lista_dfs = recorrido_dfs(arbolito, vertInicial);
 	
-	printf("Lista de nodos y padres!\r\n");
-	printf("Nodo %s tiene de padre al %s\r\n", "a", (char*)hash_obtener(resultados, "a"));
-	printf("Nodo %s tiene de padre al %s\r\n", "b", (char*)hash_obtener(resultados, "b"));
-	printf("Nodo %s tiene de padre al %s\r\n", "c", (char*)hash_obtener(resultados, "c"));
-	printf("Nodo %s tiene de padre al %s\r\n", "d", (char*)hash_obtener(resultados, "d"));
-	printf("Nodo %s tiene de padre al %s\r\n", "e", (char*)hash_obtener(resultados, "e"));
-	printf("Nodo %s tiene de padre al %s\r\n", "f", (char*)hash_obtener(resultados, "f"));
-	printf("Nodo %s tiene de padre al %s\r\n", "g", (char*)hash_obtener(resultados, "g"));
-	printf("Nodo %s tiene de padre al %s\r\n", "h", (char*)hash_obtener(resultados, "h"));
-	printf("Nodo %s tiene de padre al %s\r\n", "i", (char*)hash_obtener(resultados, "i"));
-	hash_destruir(resultados);
+	// Muestro los resultados:
+	int pesoAcum = 0;
+	char* vAnterior = NULL;
+	lista_iter_t* lit = lista_iter_crear(lista_dfs);
+	printf("Recorrido final obtenido: ");
+	while(!lista_iter_al_final(lit)){
+		char* vAct = (char*) lista_iter_ver_actual(lit);
+		printf("%s ", vAct);
+		if(vAnterior)
+			pesoAcum += grafo_devolver_peso_arista(ng, vAnterior, vAct);
+		vAnterior = vAct;
+		lista_iter_avanzar(lit);
+		}
+	lista_iter_destruir(lit);
+	pesoAcum += grafo_devolver_peso_arista(ng, vAnterior, vertInicial);
+	printf("\r\nPeso final del tour: %d\r\n", pesoAcum);
+	lista_destruir(lista_dfs, NULL);
+
+	grafo_destruir(arbolito);
 	grafo_destruir(ng);
 	return 0;
 }
