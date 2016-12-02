@@ -1,4 +1,4 @@
-CARGS= -Wall -pedantic -std=c99 -g
+CARGS= -Wall -pedantic -std=gnu99 -g
 
 
 PRUEBAS= tsp.c
@@ -31,7 +31,7 @@ lista.o: lista.c lista.h
 	$(CC) $(CARGS) lista.c -c
 
 $(EXEC): $(GRAFO) $(PRUEBAS) $(TDAS) 
-	gcc $(CARGS) $(GRAFO) $(TDAS) $(PRUEBAS) -o $(EXEC)
+	gcc $(CARGS) $(GRAFO) $(TDAS) $(PRUEBAS) -o $(EXEC) -lrt
 
 run: $(EXEC)
 	./$(EXEC)

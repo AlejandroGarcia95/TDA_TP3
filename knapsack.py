@@ -61,35 +61,6 @@ def solveMochila(cantElem, capMochila):
 		if (v > maxV) and (soluciones[cantElem][v] <= capMochila):
 			maxV = v
 	return maxV	
-	
-# Malo Tardos malo	
-def solveMochila2(cantElem, capMochila):
-	global valores_aux
-	global soluciones
-	global vec_w
-	for i in range (0, cantElem+1):
-		for v in range (0, sum(valores_aux)+1):
-			soluciones[i][v] = 0
-	for v in range(0, sum(valores_aux)+1):
-		soluciones[0][v] = 999999999
-	soluciones[0][0] = 0
-	for i in range (1, cantElem+1):
-		for v in range (1, sum(valores_aux[:i])+1):
-			#print sum(valores_aux[:i])
-			if v > sum(valores_aux[:i-1]):
-				#print v
-				#print sum(valores_aux[:i-1])
-				soluciones[i][v] = vec_w[i-1] + soluciones[i-1][v]
-			else:
-				soluciones[i][v] = min(soluciones[i-1][v], vec_w[i-1] + soluciones[i-1][max(0, v-valores_aux[i-1])])
-	# Devolver el maximo v tq soluciones[cantElem][v] <= capMochila
-	maxV = -1
-	for v in range (1, sum(valores_aux)+1):
-		if (v > maxV) and (soluciones[cantElem][v] <= capMochila):
-			maxV = v
-	print maxV
-	print soluciones[cantElem][maxV]
-	print soluciones[cantElem][1280]
 
 def mochilaAproximada(cantElem, capMochila, precision):
 	global valores_aux
@@ -100,7 +71,7 @@ def mochilaAproximada(cantElem, capMochila, precision):
 	valores_aux = list(vec_v)
 	b = precision * float(max(vec_v)) / (2.0 * cantElem)
 	for i in range(0, cantElem):
-		valores_aux[i] = int(math.floor(valores_aux[i] / b))
+		valores_aux[i] = int(math.ceil(valores_aux[i] / b))
 	return solveMochila(cantElem, capMochila)
 
 def devolverS(cantElem, maxV):
@@ -112,7 +83,7 @@ def devolverS(cantElem, maxV):
 # De acá en adelante es la zona de tests
 
 arch = "Mochila/Dificiles/"
-arch += "knapPI_13_100_1000.csv"
+arch += "GeneradosRandom.csv"
 f = open(arch, 'r')
 dist_tiempos = []
 tProm = 0.0
@@ -138,7 +109,7 @@ for instanciaAct in range (0, 50):
 	print "Instancia actual: ", instanciaAct + 1
 	
 	t0 = time.time()
-	a = mochilaAproximada(cantElem, Wmochila, 1)
+	a = mochilaAproximada(cantElem, Wmochila, 1.0)
 	t1 = time.time()
 	
 	devolverS(cantElem, a)

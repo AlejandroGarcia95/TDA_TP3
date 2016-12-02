@@ -9,8 +9,14 @@
 #include <time.h>
 #include "pila.h"
 #include "heap.h"
-
-// Prim es O(n a la 2)
+#include <time.h>
+#include <unistd.h>
+#include <stdlib.h>
+#if __STDC_VERSION__ >= 199901L
+#define _XOPEN_SOURCE 600
+#else
+#define _XOPEN_SOURCE 500
+#endif
 
 #define FALSE 0
 #define TRUE 1
@@ -303,13 +309,41 @@ grafo_t* crear_ejemplo(){
 	
 }
 
-int main(){
-	grafo_t* ng = crear_ejemplo();
-	char* vertInicial = "a";
-	grafo_t* arbolito = ejecutar_prim(ng, vertInicial);
-	lista_t* lista_dfs = recorrido_dfs(arbolito, vertInicial);
+grafo_t* parsear_archivo_crear_grafo(char* archivo, int cantNodos){
 	
-	// Muestro los resultados:
+	grafo_t* grafo_arch = grafo_crear();
+	if(!grafo_arch) return NULL;
+	FILE *fp;
+	fp = fopen(archivo, "r");
+	if(!fp){
+		grafo_destruir(grafo_arch);
+		return NULL;
+		}
+	// Creo los vertices del grafo
+	int i, j;
+	for(i = 0; i < cantNodos; i++){
+		char verticeString[5];
+		sprintf(verticeString, "%d", i);
+		grafo_crear_vertice(grafo_arch, verticeString);
+		}
+	// Creo las aristas del grafo
+	for(i = 0; i < cantNodos; i++)
+		for(j = 0; j < cantNodos; j++){
+			int pesoAct;
+			fscanf(fp, "%d", &pesoAct);
+			if(pesoAct){
+				char origen[5], destino[5];
+				sprintf(origen, "%d", i);
+				sprintf(destino, "%d", j);
+				grafo_crear_arista(grafo_arch, origen, destino, FALSE, pesoAct);
+				}
+			}
+	fclose(fp);
+	return grafo_arch;
+}
+
+
+void mostrar_resultados(grafo_t* ng, char* vertInicial, lista_t* lista_dfs){
 	int pesoAcum = 0;
 	char* vAnterior = NULL;
 	lista_iter_t* lit = lista_iter_crear(lista_dfs);
@@ -325,7 +359,25 @@ int main(){
 	lista_iter_destruir(lit);
 	pesoAcum += grafo_devolver_peso_arista(ng, vAnterior, vertInicial);
 	printf("\r\nPeso final del tour: %d\r\n", pesoAcum);
+}
+
+int main(){
+	struct timespec start, stop;
+    double accum;
+	grafo_t* ng = parsear_archivo_crear_grafo("testsRandom/random100.txt", 100);
+	char* vertInicial = "0";
+	clock_gettime( CLOCK_REALTIME, &start);
+	grafo_t* arbolito = ejecutar_prim(ng, vertInicial);
+	lista_t* lista_dfs = recorrido_dfs(arbolito, vertInicial);
+	clock_gettime( CLOCK_REALTIME, &stop);
+	
+	// Muestro los resultados:
+	mostrar_resultados(ng, vertInicial, lista_dfs);
 	lista_destruir(lista_dfs, NULL);
+	
+	accum = (stop.tv_nsec - start.tv_nsec) * 0.000001;
+	//accum *= 0.001;
+	printf("\r\n Tiempo tomado: %f seg.\r\n", accum);
 
 	grafo_destruir(arbolito);
 	grafo_destruir(ng);
